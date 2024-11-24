@@ -1,0 +1,105 @@
+version: '3.9'
+
+services:
+  order-service:
+    image: order-service
+    ports:
+      - "8082:8082"
+    build:
+      context: ./order-service
+      dockerfile: ./Dockerfile
+    container_name: order-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - postgres-order
+    networks:
+      - spring
+
+  inventory-service:
+    image: inventory-service
+    ports:
+      - "8083:8083"
+    build:
+      context: ./inventory-service
+      dockerfile: ./Dockerfile
+    container_name: inventory-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - postgres-inventory
+    networks:
+      - spring
+
+  product-service:
+    image: product-service
+    ports:
+      - "8084:8084"
+    build:
+      context: ./product-service
+      dockerfile: ./Dockerfile
+    container_name: product-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - mongo
+    networks:
+      - spring
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    container_name: mongo
+    volumes:
+      - ./data/mongo/products:/data/db
+      - ./init/mongo/docker-entrypoint-initdb.d/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    restart: unless-stopped
+    command: mongod --auth
+    networks:
+      - spring
+
+  postgres-order:
+    image: postgres
+    ports:
+      - "5434:5432"
+    container_name: postgres-order
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./data/postgres/order:/var/lib/postgresql/data
+      - ./init/postgres/order/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - spring
+
+  postgres-inventory:
+    image: postgres
+    ports:
+      - "5469:5469"
+    container_name: postgres-inventory
+    environment:
+      - PGPORT=5469
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=inventory-service
+    volumes:
+      - ./data/postgres/inventory:/var/lib/postgresql/data
+      - ./init/postgres/inventory/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - spring
+
+volumes:
+  postgres-inventory:
+    driver: local
+  postgres-order:
+    driver: local
+  mongo:
+    driver: local
+
+networks:
+  spring:
+    driver: bridge
